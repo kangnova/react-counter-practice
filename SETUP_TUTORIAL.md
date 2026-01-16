@@ -731,8 +731,334 @@ Sekarang tombol "Tambah" sudah berfungsi! Langkah selanjutnya:
 
 ---
 
+# 🌐 Bagian 3: Deploy ke GitHub Pages
+
+Setelah Counter App jadi, kini kita deploy ke GitHub Pages agar punya live demo yang bisa diakses siapa saja.
+
+---
+
+## 🎯 Tujuan Deployment
+
+Membuat aplikasi React Anda dapat diakses online di:
+```
+https://[username].github.io/[repo-name]/
+```
+
+Contoh: `https://kangnova.github.io/react-counter-practice/`
+
+---
+
+## 📌 Mengapa Perlu Konfigurasi Base Path?
+
+### Perbedaan: Local vs GitHub Pages
+
+**Ketika Anda dev local (`npm run dev`):**
+```
+URL: http://localhost:5173/
+Aplikasi: di root domain
+CSS/JS path: /main.js ✅ (ditemukan di root)
+```
+
+**Ketika deploy ke GitHub Pages:**
+```
+URL: https://kangnova.github.io/react-counter-practice/
+                              ↑ aplikasi di sub-path
+CSS/JS path: /main.js ❌ (tidak ditemukan - cari di root domain)
+CSS/JS path: /react-counter-practice/main.js ✅ (BENAR!)
+```
+
+**Kesimpulan:**
+Browser perlu tahu bahwa aplikasi Anda di `sub-path`, bukan root. Jika tidak, file CSS/JS tidak ditemukan → halaman blank.
+
+---
+
+## 🛠️ Step 1: Update `vite.config.js`
+
+Buka file `vite.config.js` dan ubah:
+
+**Dari:**
+```javascript
+export default defineConfig({
+  plugins: [react()],
+})
+```
+
+**Menjadi:**
+```javascript
+export default defineConfig({
+  base: './',
+  plugins: [react()],
+})
+```
+
+**Penjelasan:**
+- `base: './'` = gunakan path relatif (cocok untuk sub-path)
+- Vite akan automatically adjust semua import CSS/JS saat build
+
+---
+
+## 📦 Step 2: Install Package `gh-pages`
+
+Package ini memudahkan deploy ke GitHub Pages. Jalankan:
+
+```bash
+npm install --save-dev gh-pages
+```
+
+Output:
+```
+added 1 package, and audited 23 packages in 1.82s
+```
+
+Package `gh-pages` akan ditambah ke `devDependencies` di `package.json`.
+
+---
+
+## ⚙️ Step 3: Tambahkan Script Deploy
+
+Buka `package.json` dan update bagian `"scripts"`:
+
+**Dari:**
+```json
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "lint": "eslint .",
+  "preview": "vite preview"
+}
+```
+
+**Menjadi:**
+```json
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "predeploy": "npm run build",
+  "deploy": "gh-pages -d dist -b gh-pages -t"
+}
+```
+
+**Penjelasan script:**
+
+| Script | Fungsi |
+|--------|--------|
+| `predeploy` | Hook yang jalankan **sebelum** `deploy` (prefix `pre-`) |
+| `npm run build` | Build aplikasi → hasilkan folder `dist/` |
+| `deploy` | Upload isi `dist/` ke branch `gh-pages` GitHub |
+| `-d dist` | Directory yang di-deploy |
+| `-b gh-pages` | Nama branch target di GitHub |
+| `-t` | Tag untuk menandai deployment |
+
+---
+
+## 🚀 Step 4: Jalankan Deployment
+
+Sekarang deploy ke GitHub Pages:
+
+```bash
+npm run deploy
+```
+
+**Proses yang terjadi:**
+
+```
+npm run deploy
+    ↓
+Jalankan predeploy: npm run build
+    ↓
+Vite build: Kompilasi React → folder dist/
+    ↓
+Jalankan deploy: gh-pages -d dist -b gh-pages -t
+    ↓
+Ambil isi dist/ → push ke branch gh-pages GitHub
+    ↓
+GitHub Pages automatically publish
+    ↓
+Live! 🎉
+```
+
+**Output sukses:**
+```
+> react-counter-practice@0.0.0 predeploy
+> npm run build
+
+> react-counter-practice@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+✓ 30 modules transformed.
+dist/index.html                   0.41 kB
+dist/assets/index-BCk4lu7Y.js   193.43 kB
+✓ built in 4.32s
+
+> react-counter-practice@0.0.0 deploy
+> gh-pages -d dist -b gh-pages -t
+
+Published
+```
+
+---
+
+## 🌐 Step 5: Konfigurasi GitHub Pages Settings
+
+Setelah deploy, atur GitHub Pages di repository:
+
+1. **Buka GitHub repository**
+2. **Settings** → **Pages** (sidebar kiri)
+3. **Source:**
+   - Pilih: `Deploy from a branch`
+   - Branch: `gh-pages`
+   - Folder: `/ (root)`
+4. Klik **Save**
+
+Tunggu ~2 menit, GitHub Pages akan publish aplikasi Anda.
+
+---
+
+## ✨ Step 6: Verifikasi & Test
+
+Setelah deploy selesai:
+
+1. **Clear browser cache:**
+   ```
+   Ctrl + Shift + Delete → Clear all → OK
+   ```
+
+2. **Buka URL aplikasi:**
+   ```
+   https://[username].github.io/[repo-name]/
+   Contoh: https://kangnova.github.io/react-counter-practice/
+   ```
+
+3. **Verifikasi aplikasi:**
+   - ✅ Judul "Counter App" muncul
+   - ✅ Angka "0" ditampilkan
+   - ✅ Tombol "Tambah (+)" berfungsi
+   - ✅ Tombol "Kurang (-)" berfungsi
+
+---
+
+## 🐛 Troubleshooting: Halaman Blank
+
+### **Masalah: CSS/JS Tidak Ditemukan (404 Error)**
+
+**Penyebab:**
+- Path di HTML masih absolut (`/assets/...`) bukan relatif (`./assets/...`)
+- Base path tidak cocok dengan struktur folder
+
+**Solusi:**
+
+**1. Cek `index.html`:**
+```html
+<!-- ❌ SALAH - Path absolut -->
+<script type="module" src="/src/main.jsx"></script>
+
+<!-- ✅ BENAR - Path relatif -->
+<script type="module" src="./src/main.jsx"></script>
+```
+
+**2. Cek `vite.config.js`:**
+```javascript
+// ❌ SALAH
+base: '/react-counter-practice/'
+
+// ✅ BENAR (untuk sub-path)
+base: './'
+```
+
+**3. Rebuild & deploy ulang:**
+```bash
+rm -r dist
+npm run deploy
+```
+
+**4. Clear cache browser:**
+- Ctrl+Shift+Delete → Clear all
+- Atau gunakan Incognito Mode (Ctrl+Shift+N)
+
+---
+
+## 📝 Checklist Deployment
+
+- [x] Update `vite.config.js` dengan `base: './'`
+- [x] Install `gh-pages` dengan `npm install --save-dev gh-pages`
+- [x] Tambahkan script `predeploy` dan `deploy` ke `package.json`
+- [x] Jalankan `npm run deploy` di terminal
+- [x] Tunggu ~2 menit untuk GitHub Pages publish
+- [x] Konfigurasi GitHub Pages Settings (branch `gh-pages`, folder `/`)
+- [x] Clear browser cache & refresh
+- [x] Verifikasi aplikasi berfungsi di live URL ✅
+
+---
+
+## 🎓 Pembelajaran Kunci
+
+### **1. Base Path vs Relative Path**
+```javascript
+// Base path ABSOLUT (untuk domain root)
+base: '/react-counter-practice/'
+// Output: /react-counter-practice/main.js
+// Bekerja jika di: github.com/username/react-counter-practice
+
+// Base path RELATIF (untuk sub-path)
+base: './'
+// Output: ./main.js
+// Bekerja di mana saja, termasuk sub-path
+```
+
+### **2. Deployment Workflow**
+```
+Local dev (npm run dev)
+    ↓
+Build production (npm run build)
+    ↓
+Generate dist/ folder
+    ↓
+Deploy ke gh-pages branch (npm run deploy)
+    ↓
+GitHub Pages publish
+    ↓
+Live URL siap! 🎉
+```
+
+### **3. GitHub Pages Limitations**
+- ⚠️ Hanya bisa host file statis (HTML, CSS, JS)
+- ⚠️ Tidak bisa backend/server-side rendering
+- ⚠️ Gratis, unlimited bandwidth
+- ✅ Perfect untuk portfolio, demo, project kecil
+
+---
+
+## 🚀 Setelah Deploy Berhasil
+
+Sekarang Counter App Anda sudah live! Apa yang bisa dilakukan selanjutnya:
+
+1. **Share link aplikasi** - Tunjuk ke teman/portfolio
+2. **Tambah fitur** - Reset button, batasan nilai, dll
+3. **Improve styling** - Buat lebih cantik dengan CSS
+4. **Deploy ulang** - Setiap edit, cukup jalankan `npm run deploy`
+5. **Dokumentasi README** - Tulis di `README.md` cara pakai aplikasi
+
+---
+
+## 📌 File yang Dimodifikasi untuk Deployment
+
+| File | Perubahan |
+|------|-----------|
+| `vite.config.js` | Ditambah `base: './'` |
+| `package.json` | Ditambah script `predeploy` dan `deploy` |
+| `index.html` | Ubah ke path relatif `./src/main.jsx` |
+| **New:** `gh-pages` package | Installed untuk deployment automation |
+| **New:** `dist/` folder | Generated saat `npm run build` |
+| **New:** Branch `gh-pages` | Dibuat oleh `gh-pages` package, digunakan GitHub Pages |
+
 ---
 
 **Dokumentasi dibuat pada:** 16 Januari 2026
 
-**Untuk pertanyaan lebih lanjut:** Lihat [dokumentasi React - Using the State Hook](https://react.dev/reference/react/useState) dan [dokumentasi Vite](https://vite.dev)
+**Untuk pertanyaan lebih lanjut:** 
+- Lihat [dokumentasi Vite - Deploying Static Site](https://vite.dev/guide/static-deploy.html)
+- Lihat [dokumentasi GitHub Pages](https://docs.github.com/en/pages)
+- Lihat [dokumentasi gh-pages npm package](https://www.npmjs.com/package/gh-pages)
